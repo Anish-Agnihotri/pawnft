@@ -5,38 +5,44 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-// ============ Structs ============
-
-struct PawnLoan {
-  // NFT token address
-  address tokenAddress;
-  // NFT token owner (loan initiator)
-  address tokenOwner;
-  // Current top lender/bidder
-  address lender;
-  // NFT token id
-  uint256 tokenId;
-  // Fixed interest rate
-  uint256 interestRate;
-  // Current max bid
-  uint256 loanAmount;
-  // Maximum bid
-  uint256 maxLoanAmount;
-  // Current loan utilization
-  uint256 loanAmountDrawn;
-  // Timestamp of first bid
-  uint256 firstBidTime;
-  // Timestamp of last bid
-  uint256 lastBidTime;
-  // Interest paid by top bidder, thus far
-  uint256 historicInterest;
-  // Timestamp of loan completion
-  uint256 loanCompleteTime;
-  // Loan repaid status
-  bool repaid;
-}
-
+/**
+ * @title PawnBank: NFT-collateralized lending
+ * @author Anish Agnihotri
+ * @dev Completed loans are represented as tokenOwner = 0x0 to prevent
+ *      errors w.r.t stack too deep (too large of a struct to include a bool)
+ * @dev Unlike original spec., lenders are paid for only active duration (D')
+ */
 contract PawnBank {
+  // ============ Structs ============
+
+  // Individual loan
+  struct PawnLoan {
+    // NFT token address
+    address tokenAddress;
+    // NFT token owner (loan initiator or 0x0 for repaid)
+    address tokenOwner;
+    // Current top lender/bidder
+    address lender;
+    // NFT token id
+    uint256 tokenId;
+    // Fixed interest rate
+    uint256 interestRate;
+    // Current max bid
+    uint256 loanAmount;
+    // Maximum bid
+    uint256 maxLoanAmount;
+    // Current loan utilization
+    uint256 loanAmountDrawn;
+    // Timestamp of first bid
+    uint256 firstBidTime;
+    // Timestamp of last bid
+    uint256 lastBidTime;
+    // Interest paid by top bidder, thus far
+    uint256 historicInterest;
+    // Timestamp of loan completion
+    uint256 loanCompleteTime;
+  }
+
   // ============ Mutable storage ============
 
   // Number of loans issued
@@ -70,6 +76,12 @@ contract PawnBank {
 
   /**
    * Enables an NFT owner to create a loan, specifying parameters
+   * @param _tokenAddress NFT token address
+   * @param _tokenId NFT token id
+   * @param _interestRate percentage fixed interest rate for period
+   * @param _maxLoanAmount maximum allowed Ether bid
+   * @param _loanCompleteTime time of loan completion
+   * @return Loan id
    */
   function createLoan(
     address _tokenAddress,
@@ -97,8 +109,7 @@ contract PawnBank {
       0, // No first bid timestamp
       0, // No last bid timestamp
       0, // No historic interest
-      _loanCompleteTime,
-      false
+      _loanCompleteTime
     );
 
     // Increment number of loans
@@ -120,6 +131,8 @@ contract PawnBank {
 
   /**
    * Calculates interest accrued for a particular lender
+   * @param loan PawnLoan
+   * @return Accrued interest on current top bid, in Ether
    */
   function _calculateInterestAccrued(PawnLoan memory loan) public view returns (uint256) {
     return
@@ -133,13 +146,15 @@ contract PawnBank {
 
   /**
    * Enables a lender/bidder to underwrite a loan, given it is the top bid
+   * @param _loanId id of loan to underwrite
+   * @dev Requires an unpaid loan, where currentBid < newBid <= maxBid
    */
   function underwriteLoan(uint256 _loanId) external payable {
     PawnLoan storage loan = pawnLoans[_loanId];
     // Prevent underwriting with 0 value
     require(msg.value > 0, "Can't underwrite with 0 Ether.");
     // Prevent underwriting a repaid loan
-    require(loan.repaid == false, "Can't underwrite a repaid loan.");
+    require(loan.tokenOwner != address(0), "Can't underwrite a repaid loan.");
     // Prevent underwriting a loan with value < current top bid
     require(loan.loanAmount < msg.value, "Can't underwrite < top lender.");
     // Prevent underwriting a loan with value greater than max bid
@@ -177,13 +192,12 @@ contract PawnBank {
 
   /**
    * Enables NFT owner to draw capital from top bid
+   * @param _loanId id of loan to draw from
    */
   function drawLoan(uint256 _loanId) external {
     PawnLoan storage loan = pawnLoans[_loanId];
     // Prevent drawing from a loan without bids
     require(loan.firstBidTime != 0, "No capacity to draw loan.");
-    // Prevent drawing from a repaid loan
-    require(loan.repaid == false, "Can't draw against repaid loan.");
     // Prevent non-loan-owner from drawing
     require(loan.tokenOwner == msg.sender, "Must be NFT owner to draw.");
     // Prevent drawing from a loan with 0 available capital
@@ -202,11 +216,12 @@ contract PawnBank {
 
   /**
    * Enables anyone to repay a loan on behalf of owner
+   * @param _loanId id of loan to repay
    */
   function repayLoan(uint256 _loanId) external payable {
     PawnLoan storage loan = pawnLoans[_loanId];
     // Prevent repaying repaid loan
-    require(loan.repaid == false, "Can't repay paid loan.");
+    require(loan.tokenOwner != address(0), "Can't repay paid loan.");
     // Prevent repaying loan without bids
     require(loan.firstBidTime != 0, "Can't repay loan with 0 bids.");
     // Prevent repaying loan after expiry
@@ -228,22 +243,22 @@ contract PawnBank {
     // Transfer NFT back to owner
     IERC721(loan.tokenAddress).transferFrom(address(this), loan.tokenOwner, loan.tokenId);
 
-    // Toggle loan repayment
-    loan.repaid = true;
+    // Toggle loan repayment (nullify tokenOwner)
+    loan.tokenOwner = address(0);
 
     // Emit repayment event
     emit LoanRepayed(_loanId, loan.lender, msg.sender);
   }
 
   /**
-   * Enables owner to cancel loan (assuming no bids placed)
+   * Enables owner to cancel loan
+   * @param _loanId id of loan to cancel
+   * @dev requires no active bids to be placed (else, use repay)
    */
   function cancelLoan(uint256 _loanId) external {
     PawnLoan storage loan = pawnLoans[_loanId];
     // Enforce loan ownership
     require(loan.tokenOwner == msg.sender, "Must be owner.");
-    // Enforce loan is unpaid
-    require(loan.repaid == false, "Can't cancel repaid loan.");
     // Enforce loan has no bids
     require(loan.firstBidTime == 0, "Can't cancel loan with >0 bids.");
 
@@ -251,7 +266,7 @@ contract PawnBank {
     IERC721(loan.tokenAddress).transferFrom(address(this), msg.sender, loan.tokenId);
 
     // Nullify loan
-    loan.repaid = true;
+    loan.tokenOwner = address(0);
 
     // Emit cancelleation event
     emit LoanCancelled(_loanId);
@@ -259,11 +274,12 @@ contract PawnBank {
 
   /**
    * Enables anyone to seize NFT, for lender, on loan default
+   * @param _loanId id of loan to seize collateral
    */
   function seizeNFT(uint256 _loanId) external {
     PawnLoan memory loan = pawnLoans[_loanId];
     // Enforce loan is unpaid
-    require(loan.repaid == false, "Can't seize from repaid loan.");
+    require(loan.tokenOwner != address(0), "Can't seize from repaid loan.");
     // Enforce loan is expired
     require(loan.loanCompleteTime < block.timestamp, "Can't seize before expiry.");
 
