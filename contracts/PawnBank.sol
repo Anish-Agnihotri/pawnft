@@ -134,7 +134,7 @@ contract PawnBank {
   }
 
   /**
-   * Calculates accrued interest for a particular lender
+   * Helper: Calculate accrued interest for a particular lender
    * @param _loanId PawnLoan id
    * @return Accrued interest on current top bid, in Ether
    */
@@ -155,15 +155,27 @@ contract PawnBank {
   }
 
   /**
-   * Calculate required capital to repay loan
+   * Helper: Calculates required additional capital (over topbid) to outbid loan
+   * @param _loanId PawnLoan id
+   * @return required interest payment to cover current top bidder
+   */
+  function calculateTotalInterest(uint256 _loanId) public view returns (uint256) {
+    PawnLoan memory loan = pawnLoans[_loanId];
+
+    // past lender interest + current accrued interest
+    return loan.historicInterest + calculateInterestAccrued(_loanId);
+  }
+
+  /**
+   * Helper: Calculate required capital to repay loan
    * @param _loanId PawnLoan id
    * @return required loan repayment in Ether
    */
   function calculateRequiredRepayment(uint256 _loanId) public view returns (uint256) {
     PawnLoan memory loan = pawnLoans[_loanId];
 
-    // amount withdrawn + past lender interest + current accrued interest
-    return loan.loanAmountDrawn + loan.historicInterest + calculateInterestAccrued(_loanId);
+    // amount withdrawn + total interest to be paid
+    return loan.loanAmountDrawn + calculateTotalInterest(_loanId);
   }
 
   /**
@@ -182,10 +194,8 @@ contract PawnBank {
 
     // If loan has a previous bid:
     if (loan.firstBidTime != 0) {
-      // Calculate interest accrued by previous bid
-      uint256 _accruedInterest = calculateInterestAccrued(_loanId);
-      // Add historic interest paid to previous top bidders
-      uint256 _totalInterest = loan.historicInterest + _accruedInterest;
+      // Historic interest paid to previous top bidders + accrued interest to current bidder
+      uint256 _totalInterest = calculateTotalInterest(_loanId);
       // Calculate total payout for previous bidder
       uint256 _bidPayout = loan.loanAmount + _totalInterest;
 
@@ -200,17 +210,19 @@ contract PawnBank {
 
       // Increment historic paid interest
       loan.historicInterest += _totalInterest;
+      // Update new loan amount
+      loan.loanAmount = msg.value - _totalInterest;
     } else {
       // Prevent underwriting a loan with value greater than max bid
       require(loan.maxLoanAmount >= msg.value, "Can't underwrite > max loan.");
       // If loan doesn't have a previous bid (to buyout), set first bid time
       loan.firstBidTime = block.timestamp;
+      // Update new loan amount
+      loan.loanAmount = msg.value;
     }
 
     // Update new lender address
     loan.lender = msg.sender;
-    // Update new loan amount
-    loan.loanAmount = msg.value;
     // Update last bid time
     loan.lastBidTime = block.timestamp;
 
@@ -255,10 +267,8 @@ contract PawnBank {
     // Prevent repaying loan after expiry
     require(loan.loanCompleteTime >= block.timestamp, "Can't repay expired loan.");
 
-    // Calculate interest accrued to current bid
-    uint256 _accruedInterest = calculateInterestAccrued(_loanId);
-    // Add historic interest paid to previous top bidders
-    uint256 _totalInterest = loan.historicInterest + _accruedInterest;
+    // Add historic interest paid to previous top bidders + accrued interest to top bidder
+    uint256 _totalInterest = calculateTotalInterest(_loanId);
     // Calculate additional capital required to process payout
     uint256 _additionalCapital = loan.loanAmountDrawn + _totalInterest;
     // Enforce additional required capital is passed to contract

@@ -1,7 +1,7 @@
-import { expect } from "chai";
-import { Contract, Signer } from "ethers";
-import { ethers, waffle, network } from "hardhat";
-import { SquigglesABI } from "./abi/squiggles";
+import { expect } from "chai"; // Testing
+import { Contract, Signer } from "ethers"; // Ethers
+import { SquigglesABI } from "./abi/squiggles"; // ABI
+import { ethers, waffle, network } from "hardhat"; // Hardhat
 
 // Setup test Chromie Squiggle NFT
 const SQUIGGLE_0: number = 0;
@@ -20,6 +20,7 @@ const ADDRESSES: Record<string, string> = {
   ZERO: "0x0000000000000000000000000000000000000000",
 };
 
+// Potential revert error messages
 const ERROR_MESSAGES: Record<string, Record<string, string>> = {
   CREATE: {
     NO_EXPIRED_LOAN: "Can't create loan in past",
@@ -36,6 +37,11 @@ const ERROR_MESSAGES: Record<string, Record<string, string>> = {
     MAX_CAPACITY: "Max draw capacity reached.",
     NOT_OWNER: "Must be NFT owner to draw.",
   },
+  REPAY: {
+    NO_BIDS: "Can't repay loan with 0 bids.",
+    EXPIRED: "Can't repay expired loan.",
+    ALREADY_REPAID: "Can't repay paid loan.",
+  },
   CANCEL: {
     NON_ZERO_BIDS: "Can't cancel loan with >0 bids.",
     NOT_OWNER: "Must be NFT owner to cancel.",
@@ -46,7 +52,7 @@ const ERROR_MESSAGES: Record<string, Record<string, string>> = {
   },
 };
 
-// Setup contract
+// Setup global contracts
 let PawnBankContract: Contract;
 let PawnBankContractAddress: string;
 
@@ -245,7 +251,8 @@ describe("PawnBank", () => {
 
       // Draw and repay loan
       await SnowfroPawnBank.drawLoan(0);
-      await SnowfroPawnBank.repayLoan(0, { value: ethers.utils.parseEther("1") });
+      const repaymentAmount = await SnowfroPawnBank.calculateRequiredRepayment(0);
+      await SnowfroPawnBank.repayLoan(0, { value: repaymentAmount.mul(101).div(100) });
 
       // Attempt to re-underwrite loan
       const tx = LenderOneBank.underwriteLoan(0, {
@@ -321,11 +328,45 @@ describe("PawnBank", () => {
     });
 
     it("Should allow underwriting a loan with existing bid", async () => {
-      expect(false).to.equal(true);
+      // Create loan
+      await scaffoldLoan();
+
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // First lender balance
+      const previousBalance = await waffle.provider.getBalance(ADDRESSES.LENDER_ONE);
+
+      // Back loan with 5 ETH
+      const tx = await LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("5.0"),
+      });
+      const receipt = await waffle.provider.getTransactionReceipt(tx.hash);
+
+      // Impersonate Lender Two
+      const LenderTwoSigner = await impersonateSigner(ADDRESSES.LENDER_TWO);
+      const LenderTwoBank = PawnBankContract.connect(LenderTwoSigner);
+
+      // Back loan with 6 ETH
+      const totalInterest = await LenderTwoBank.calculateTotalInterest(0);
+      const totalBuffer = totalInterest.mul(2);
+      const higherLoan = ethers.utils.parseEther("6.0").add(totalBuffer);
+      await LenderTwoBank.underwriteLoan(0, { value: higherLoan });
+
+      // Collect details
+      const NewTopLender: string = (await LenderTwoBank.pawnLoans(0)).lender;
+      const expectedLenderOneBalance = previousBalance
+        .sub(tx.gasPrice.mul(receipt.cumulativeGasUsed))
+        .add(totalBuffer);
+      const acutalLenderOneBalance = await waffle.provider.getBalance(ADDRESSES.LENDER_ONE);
+
+      // Verify first lender received principle + interest
+      expect(acutalLenderOneBalance).to.be.gte(expectedLenderOneBalance);
+      // Verify second lender is now top bidder
+      expect(NewTopLender).to.equal(ADDRESSES.LENDER_TWO);
     });
   });
-
-  // it("Should allow underwriting a loan with existing bids", async () => {});
 
   describe("Loan drawing", () => {
     it("Should allow drawing from a loan", async () => {
@@ -358,11 +399,60 @@ describe("PawnBank", () => {
         .sub(tx.gasPrice.mul(receipt.cumulativeGasUsed))
         .add(ethers.utils.parseEther("5.0"));
 
-      expect(afterBalance.toString()).to.equal(expectedAfterBalance.toString());
+      expect(afterBalance).to.equal(expectedAfterBalance);
     });
 
     it("Should allow drawing additional capital from a new bid", async () => {
-      expect(false).to.equal(true);
+      // Create loan
+      await scaffoldLoan();
+
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // Back loan with 5 ETH
+      await LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("5.0"),
+      });
+
+      // Collect previous Snowfro balance
+      const previousBalance = await waffle.provider.getBalance(ADDRESSES.SNOWFRO);
+
+      // Impersonate Snowfro
+      const SnowfroSigner = await impersonateSigner(ADDRESSES.SNOWFRO);
+      const SnowfroPawnBank = PawnBankContract.connect(SnowfroSigner);
+
+      // Draw 5ETH
+      const tx = await SnowfroPawnBank.drawLoan(0);
+      const receipt = await waffle.provider.getTransactionReceipt(tx.hash);
+
+      // Check for Snowfro balance increment
+      const afterBalance = await waffle.provider.getBalance(ADDRESSES.SNOWFRO);
+      const expectedAfterBalance = previousBalance
+        .sub(tx.gasPrice.mul(receipt.cumulativeGasUsed))
+        .add(ethers.utils.parseEther("5.0"));
+      expect(afterBalance).to.equal(expectedAfterBalance);
+
+      // Impersonate Lender Two
+      const LenderTwoSigner = await impersonateSigner(ADDRESSES.LENDER_TWO);
+      const LenderTwoBank = PawnBankContract.connect(LenderTwoSigner);
+
+      // Back loan with 6 ETH
+      const totalInterest = await LenderTwoBank.calculateTotalInterest(0);
+      const totalBuffer = totalInterest.mul(2);
+      const higherLoan = ethers.utils.parseEther("6.0").add(totalBuffer);
+      await LenderTwoBank.underwriteLoan(0, { value: higherLoan });
+
+      // Draw 6ETH
+      const tx2 = await SnowfroPawnBank.drawLoan(0);
+      const receipt2 = await waffle.provider.getTransactionReceipt(tx2.hash);
+
+      // Check for Snowfro balance increment
+      const afterBalance2 = await waffle.provider.getBalance(ADDRESSES.SNOWFRO);
+      const expectedAfterBalance2 = afterBalance
+        .sub(tx2.gasPrice.mul(receipt2.cumulativeGasUsed))
+        .add(ethers.utils.parseEther("1.0"));
+      expect(afterBalance2).to.equal(expectedAfterBalance2);
     });
 
     it("Should prevent drawing from a loan with no bids", async () => {
@@ -463,7 +553,7 @@ describe("PawnBank", () => {
         .add(ethers.utils.parseEther("5.0"));
 
       // Expect increase in balance
-      expect(afterBalance.toString()).to.equal(expectedAfterBalance.toString());
+      expect(afterBalance).to.equal(expectedAfterBalance);
     });
   });
 
@@ -494,10 +584,10 @@ describe("PawnBank", () => {
 
       // Calculate repayment amount
       const repaymentAmount = await SnowfroPawnBank.calculateRequiredRepayment(0);
-      console.log("Calculated repayment amount: ", repaymentAmount.toString());
+      const repaymentBuffer = repaymentAmount.mul(101).div(100);
 
       // Repay loan
-      await SnowfroPawnBank.repayLoan(0, { value: repaymentAmount });
+      await SnowfroPawnBank.repayLoan(0, { value: repaymentBuffer });
 
       // Expect loan to be closed
       const NewLoanOwner: string = (await SnowfroPawnBank.pawnLoans(0)).tokenOwner;
@@ -508,33 +598,132 @@ describe("PawnBank", () => {
       const SquiggleOwner: string = await SquigglesContract.ownerOf(SQUIGGLE_0);
       expect(SquiggleOwner).to.equal(ADDRESSES.SNOWFRO);
 
-      // Expect increase in Lender One balance by .25 ETH
+      // Expect increase in Lender One balance by ~.243 ETH
       const afterLenderBalance = await waffle.provider.getBalance(ADDRESSES.LENDER_ONE);
-      expect(previousLenderBalance.add(repaymentAmount)).to.equal(afterLenderBalance);
-    });
-
-    it("Should allow repaying loan w/ partial deposit", async () => {
-      expect(false).to.equal(true);
+      expect(afterLenderBalance).to.be.gte(previousLenderBalance.add(repaymentAmount));
     });
 
     it("Should allow repaying someone elses loan", async () => {
-      expect(false).to.equal(true);
-    });
+      // Create loan
+      await scaffoldLoan();
 
-    it("Should allow repaying after 1+ bid via historicInterest", async () => {
-      expect(false).to.equal(true);
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // Back loan with 5 ETH
+      await LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("5.0"),
+      });
+
+      // Record Lender balance
+      const previousLenderBalance = await waffle.provider.getBalance(ADDRESSES.LENDER_ONE);
+
+      // Impersonate Lender Two
+      const LenderTwoSigner = await impersonateSigner(ADDRESSES.LENDER_TWO);
+      const LenderTwoBank = PawnBankContract.connect(LenderTwoSigner);
+
+      // Fast forward <1h
+      await network.provider.send("evm_increaseTime", [3500]);
+      await network.provider.send("evm_mine");
+
+      // Calculate repayment amount
+      const repaymentAmount = await LenderTwoBank.calculateRequiredRepayment(0);
+      const repaymentBuffer = repaymentAmount.mul(101).div(100);
+
+      // Repay loan
+      await LenderTwoBank.repayLoan(0, { value: repaymentBuffer });
+
+      // Expect loan to be closed
+      const NewLoanOwner: string = (await LenderTwoBank.pawnLoans(0)).tokenOwner;
+      expect(NewLoanOwner).to.equal(ADDRESSES.ZERO);
+
+      // Expect NFT to be owned by original owner
+      const SquigglesContract = await getSquigglesContract(ADDRESSES.SNOWFRO);
+      const SquiggleOwner: string = await SquigglesContract.ownerOf(SQUIGGLE_0);
+      expect(SquiggleOwner).to.equal(ADDRESSES.SNOWFRO);
+
+      // Expect increase in Lender One balance by ~.243 ETH
+      const afterLenderBalance = await waffle.provider.getBalance(ADDRESSES.LENDER_ONE);
+      expect(afterLenderBalance).to.be.gte(previousLenderBalance.add(repaymentAmount));
     });
 
     it("Should prevent repaying loan w/ 0 bids", async () => {
-      expect(false).to.equal(true);
+      // Create loan
+      await scaffoldLoan();
+
+      // Impersonate Snowfro
+      const SnowfroSigner = await impersonateSigner(ADDRESSES.SNOWFRO);
+      const SnowfroPawnBank = PawnBankContract.connect(SnowfroSigner);
+
+      // Attempt to repay loan
+      const tx = SnowfroPawnBank.repayLoan(0);
+
+      // Expect revert
+      await expect(tx).revertedWith(ERROR_MESSAGES.REPAY.NO_BIDS);
     });
 
     it("Should prevent repaying expired loan", async () => {
-      expect(false).to.equal(true);
+      // Create loan
+      await scaffoldLoan();
+
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // Back loan with 1 ETH
+      await LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("1.0"),
+      });
+
+      // Fast forward >1h
+      await network.provider.send("evm_increaseTime", [3601]);
+      await network.provider.send("evm_mine");
+
+      // Impersonate Snowfro
+      const SnowfroSigner = await impersonateSigner(ADDRESSES.SNOWFRO);
+      const SnowfroPawnBank = PawnBankContract.connect(SnowfroSigner);
+
+      // Attempt to repay loan
+      const tx = SnowfroPawnBank.repayLoan(0);
+
+      // Expect revert
+      await expect(tx).revertedWith(ERROR_MESSAGES.REPAY.EXPIRED);
     });
 
     it("Should prevent repaying paid loan", async () => {
-      expect(false).to.equal(true);
+      // Create loan
+      await scaffoldLoan();
+
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // Back loan with 1 ETH
+      await LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("1.0"),
+      });
+
+      // Impersonate Snowfro
+      const SnowfroSigner = await impersonateSigner(ADDRESSES.SNOWFRO);
+      const SnowfroPawnBank = PawnBankContract.connect(SnowfroSigner);
+
+      // Fast forward <1h
+      await network.provider.send("evm_increaseTime", [3500]);
+      await network.provider.send("evm_mine");
+
+      // Calculate repayment amount
+      const repaymentAmount = await SnowfroPawnBank.calculateRequiredRepayment(0);
+      const repaymentBuffer = repaymentAmount.mul(101).div(100);
+
+      // Repay loan
+      await SnowfroPawnBank.repayLoan(0, { value: repaymentBuffer });
+
+      // Attempt to re-repay loan
+      const tx = SnowfroPawnBank.repayLoan(0);
+
+      // Expect revert
+      await expect(tx).revertedWith(ERROR_MESSAGES.REPAY.ALREADY_REPAID);
     });
   });
 
@@ -699,7 +888,8 @@ describe("PawnBank", () => {
 
       // Draw and repay loan
       await SnowfroPawnBank.drawLoan(0);
-      await SnowfroPawnBank.repayLoan(0, { value: ethers.utils.parseEther("1") });
+      const repaymentAmount = await SnowfroPawnBank.calculateRequiredRepayment(0);
+      await SnowfroPawnBank.repayLoan(0, { value: repaymentAmount.mul(101).div(100) });
 
       // Seize NFT
       const tx = LenderOneBank.seizeNFT(0);

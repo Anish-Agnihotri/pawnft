@@ -183,6 +183,25 @@
         "type": "uint256"
       }
     ],
+    "name": "calculateTotalInterest",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_loanId",
+        "type": "uint256"
+      }
+    ],
     "name": "cancelLoan",
     "outputs": [],
     "stateMutability": "nonpayable",

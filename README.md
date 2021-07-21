@@ -10,3 +10,5 @@ NFT bidder/lender
 
 1. Can deposit any amount of capital up to M
 2. If existing lender, must pay (1+F) _ D' _ Loan amount to update your new Loan amount
+
+Note: tests don't test interest rate calculations implied in `calculateTotalInterest`.
