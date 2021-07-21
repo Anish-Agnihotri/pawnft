@@ -7,3 +7,6 @@ artifacts
 
 # Environment variables
 .env
+
+# VSCode workspace prefs.
+.vscode
