@@ -2,7 +2,7 @@ import * as dotenv from "dotenv"; // Env
 import "@nomiclabs/hardhat-waffle"; // Hardhat
 
 // Hardhat plugins
-import "hardhat-gas-reporter"; // Gas stats
+//import "hardhat-gas-reporter"; // Gas stats
 import "hardhat-abi-exporter"; // ABI exports
 import "@nomiclabs/hardhat-solhint"; // Solhint
 
@@ -18,15 +18,15 @@ export default {
     hardhat: {
       forking: {
         url: process.env.RPC_NODE_URL,
-        blockNumber: 12861740,
+        blockNumber: 12864983,
       },
     },
   },
   // Gas reporting
-  gasReporter: {
+  /*gasReporter: {
     currency: "USD",
     gasPrice: 20,
-  },
+  },*/
   // Export ABIs
   abiExporter: {
     path: "./abi",

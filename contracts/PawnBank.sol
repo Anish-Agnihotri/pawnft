@@ -90,6 +90,9 @@ contract PawnBank {
     uint256 _maxLoanAmount,
     uint256 _loanCompleteTime
   ) external returns (uint256) {
+    // Enforce creating future-dated loan
+    require(_loanCompleteTime > block.timestamp, "Can't create loan in past");
+
     // NFT id
     uint256 loanId = numLoans;
 
@@ -258,7 +261,7 @@ contract PawnBank {
   function cancelLoan(uint256 _loanId) external {
     PawnLoan storage loan = pawnLoans[_loanId];
     // Enforce loan ownership
-    require(loan.tokenOwner == msg.sender, "Must be owner.");
+    require(loan.tokenOwner == msg.sender, "Must be NFT owner to cancel.");
     // Enforce loan has no bids
     require(loan.firstBidTime == 0, "Can't cancel loan with >0 bids.");
 
