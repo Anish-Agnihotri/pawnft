@@ -157,7 +157,7 @@ describe("PawnBank", () => {
       params: [
         {
           forking: {
-            jsonRpcUrl: process.env.RPC_NODE_URL,
+            jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_API_KEY}`,
             blockNumber: 12864983,
           },
         },

@@ -15,6 +15,9 @@ npx hardhat compile
 
 # Run tests
 npx hardhat test
+
+# Deploy contracts to Rinkeby
+npx hardhat run scripts/deploy.ts --network rinkeby
 ```
 
 Note: Tests don't check interest rate calculations implied in `calculateTotalInterest`.
