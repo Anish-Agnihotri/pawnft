@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 // ============ Imports ============
 
+import "abdk-libraries-solidity/ABDKMath64x64.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 /**
@@ -133,18 +134,36 @@ contract PawnBank {
   }
 
   /**
-   * Calculates interest accrued for a particular lender
-   * @param loan PawnLoan
+   * Calculates accrued interest for a particular lender
+   * @param _loanId PawnLoan id
    * @return Accrued interest on current top bid, in Ether
    */
-  function _calculateInterestAccrued(PawnLoan memory loan) public view returns (uint256) {
-    return
-      (// Time elapsed since bid placed
-      (block.timestamp - loan.lastBidTime) /
-        // Total time loan will stay active
-        (loan.loanCompleteTime - loan.firstBidTime)) *
-      loan.loanAmount *
-      (loan.interestRate / 100);
+  function calculateInterestAccrued(uint256 _loanId) public view returns (uint256) {
+    PawnLoan memory loan = pawnLoans[_loanId];
+    // Seconds that current bid has stayed at top
+    uint256 _secondsAsTopBid = block.timestamp - loan.lastBidTime;
+    // Seconds that any loan has been active
+    uint256 _secondsSinceFirstBid = loan.loanCompleteTime - loan.firstBidTime;
+    // Duration of total loan time that current bid has been active
+    int128 _durationAsTopBid = ABDKMath64x64.divu(_secondsAsTopBid, _secondsSinceFirstBid);
+    // Interest rate
+    int128 _interestRate = ABDKMath64x64.divu(loan.interestRate, 100);
+    // Calculating the maximum interest if paying _interestRate for all _secondsSinceFirstBid
+    uint256 _maxInterest = ABDKMath64x64.mulu(_interestRate, loan.loanAmount);
+    // Calculating the share of maximum interest to pay to top bidder
+    return ABDKMath64x64.mulu(_durationAsTopBid, _maxInterest);
+  }
+
+  /**
+   * Calculate required capital to repay loan
+   * @param _loanId PawnLoan id
+   * @return required loan repayment in Ether
+   */
+  function calculateRequiredRepayment(uint256 _loanId) public view returns (uint256) {
+    PawnLoan memory loan = pawnLoans[_loanId];
+
+    // amount withdrawn + past lender interest + current accrued interest
+    return loan.loanAmountDrawn + loan.historicInterest + calculateInterestAccrued(_loanId);
   }
 
   /**
@@ -158,26 +177,32 @@ contract PawnBank {
     require(msg.value > 0, "Can't underwrite with 0 Ether.");
     // Prevent underwriting a repaid loan
     require(loan.tokenOwner != address(0), "Can't underwrite a repaid loan.");
-    // Prevent underwriting a loan with value < current top bid
-    require(loan.loanAmount < msg.value, "Can't underwrite < top lender.");
-    // Prevent underwriting a loan with value greater than max bid
-    require(loan.maxLoanAmount >= msg.value, "Can't underwrite > max loan.");
     // Prevent underwriting an expired loan
     require(loan.loanCompleteTime >= block.timestamp, "Can't underwrite expired loan.");
 
     // If loan has a previous bid:
     if (loan.firstBidTime != 0) {
-      // Calculate interest to pay to previous bidder
-      uint256 _interestToPay = _calculateInterestAccrued(loan);
+      // Calculate interest accrued by previous bid
+      uint256 _accruedInterest = calculateInterestAccrued(_loanId);
+      // Add historic interest paid to previous top bidders
+      uint256 _totalInterest = loan.historicInterest + _accruedInterest;
       // Calculate total payout for previous bidder
-      uint256 _bidPayout = loan.loanAmount + loan.historicInterest + _interestToPay;
+      uint256 _bidPayout = loan.loanAmount + _totalInterest;
+
+      // Prevent underwriting a loan with value < required payout
+      require(_bidPayout < msg.value, "Can't underwrite < top lender.");
+      // Prevent underwriting a loan with value greater than max bid + pending interest
+      require(loan.maxLoanAmount + _totalInterest >= msg.value, "Can't underwrite > max loan.");
+
       // Buyout current top bidder
       (bool sent, ) = payable(loan.lender).call{value: _bidPayout}("");
       require(sent == true, "Failed to buyout top bidder.");
 
       // Increment historic paid interest
-      loan.historicInterest += _interestToPay;
+      loan.historicInterest += _totalInterest;
     } else {
+      // Prevent underwriting a loan with value greater than max bid
+      require(loan.maxLoanAmount >= msg.value, "Can't underwrite > max loan.");
       // If loan doesn't have a previous bid (to buyout), set first bid time
       loan.firstBidTime = block.timestamp;
     }
@@ -230,17 +255,17 @@ contract PawnBank {
     // Prevent repaying loan after expiry
     require(loan.loanCompleteTime >= block.timestamp, "Can't repay expired loan.");
 
-    // Calculate interest to pay to current bidder
-    uint256 _interestToPay = _calculateInterestAccrued(loan);
-    // Calculate payout for current bidder
-    uint256 _bidPayout = loan.loanAmount + loan.historicInterest + _interestToPay;
-    // Calculate additional required capital to process payout
-    uint256 _additionalCapital = _bidPayout - loan.loanAmountDrawn;
+    // Calculate interest accrued to current bid
+    uint256 _accruedInterest = calculateInterestAccrued(_loanId);
+    // Add historic interest paid to previous top bidders
+    uint256 _totalInterest = loan.historicInterest + _accruedInterest;
+    // Calculate additional capital required to process payout
+    uint256 _additionalCapital = loan.loanAmountDrawn + _totalInterest;
     // Enforce additional required capital is passed to contract
     require(msg.value >= _additionalCapital, "Insufficient repayment.");
 
-    // Payout current bidder
-    (bool sent, ) = payable(loan.lender).call{value: _bidPayout}("");
+    // Payout current top bidder (loan amount + total pending interest)
+    (bool sent, ) = payable(loan.lender).call{value: (loan.loanAmount + _totalInterest)}("");
     require(sent == true, "Failed to repay loan.");
 
     // Transfer NFT back to owner

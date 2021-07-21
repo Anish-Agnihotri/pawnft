@@ -27,6 +27,9 @@ const ERROR_MESSAGES: Record<string, Record<string, string>> = {
   UNDERWRITE: {
     NO_0_UNDERWRITE: "Can't underwrite with 0 Ether.",
     OVER_MAX_UNDERWRITE: "Can't underwrite > max loan.",
+    INSUFFICIENT_BID: "Can't underwrite < top lender.",
+    ALREADY_REPAID: "Can't underwrite a repaid loan.",
+    EXPIRED: "Can't underwrite expired loan.",
   },
   DRAW: {
     NO_CAPACITY: "No capacity to draw loan.",
@@ -224,11 +227,80 @@ describe("PawnBank", () => {
     });
 
     it("Should prevent underwriting a repaid loan", async () => {
-      expect(true).to.equal(false);
+      // Create loan
+      await scaffoldLoan();
+
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // Back loan with 1 ETH
+      await LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("1.0"),
+      });
+
+      // Impersonate Snowfro.eth
+      const SnowfroSigner = await impersonateSigner(ADDRESSES.SNOWFRO);
+      const SnowfroPawnBank = PawnBankContract.connect(SnowfroSigner);
+
+      // Draw and repay loan
+      await SnowfroPawnBank.drawLoan(0);
+      await SnowfroPawnBank.repayLoan(0, { value: ethers.utils.parseEther("1") });
+
+      // Attempt to re-underwrite loan
+      const tx = LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("1.1"),
+      });
+
+      // Expect revert
+      await expect(tx).revertedWith(ERROR_MESSAGES.UNDERWRITE.ALREADY_REPAID);
+    });
+
+    it("Should prevent underwriting an expired loan", async () => {
+      // Create loan
+      await scaffoldLoan();
+
+      // Fast forward >1h
+      await network.provider.send("evm_increaseTime", [3601]);
+      await network.provider.send("evm_mine");
+
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // Back loan with 1 ETH
+      const tx = LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("1.0"),
+      });
+
+      // Expect revert
+      await expect(tx).revertedWith(ERROR_MESSAGES.UNDERWRITE.EXPIRED);
     });
 
     it("Should prevent underwriting a loan under the current top bid", async () => {
-      expect(true).to.equal(false);
+      // Create loan
+      await scaffoldLoan();
+
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // Back loan with 1 ETH
+      await LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("1.0"),
+      });
+
+      // Impersonate Lender Two
+      const LenderTwoSigner = await impersonateSigner(ADDRESSES.LENDER_TWO);
+      const LenderTwoBank = PawnBankContract.connect(LenderTwoSigner);
+
+      // Back loan with <1 ETH
+      const tx = LenderTwoBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("0.5"),
+      });
+
+      // Expect revert
+      await expect(tx).revertedWith(ERROR_MESSAGES.UNDERWRITE.INSUFFICIENT_BID);
     });
 
     it("Should prevent underwriting a loan over the maxLoanAmount", async () => {
@@ -353,18 +425,92 @@ describe("PawnBank", () => {
       await expect(tx).revertedWith(ERROR_MESSAGES.DRAW.MAX_CAPACITY);
     });
 
-    it("Should allow drawing additional capital after new bid", async () => {
-      expect(false).to.equal(true);
-    });
+    it("Should allow drawing loan after NFT seizure", async () => {
+      // Create loan
+      await scaffoldLoan();
 
-    it("Shoud allow drawing loan after NFT seizure", async () => {
-      expect(false).to.equal(true);
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // Back loan with 1 ETH
+      await LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("5.0"),
+      });
+
+      // Fast forward >1h
+      await network.provider.send("evm_increaseTime", [3601]);
+      await network.provider.send("evm_mine");
+
+      // Seize NFT
+      await LenderOneBank.seizeNFT(0);
+
+      // Collect previous Snowfro balance
+      const previousBalance = await waffle.provider.getBalance(ADDRESSES.SNOWFRO);
+
+      // Impersonate Snowfro
+      const SnowfroSigner = await impersonateSigner(ADDRESSES.SNOWFRO);
+      const SnowfroPawnBank = PawnBankContract.connect(SnowfroSigner);
+
+      // Draw 5ETH
+      const tx = await SnowfroPawnBank.drawLoan(0);
+      const receipt = await waffle.provider.getTransactionReceipt(tx.hash);
+
+      // Collect after Snowfro balance
+      const afterBalance = await waffle.provider.getBalance(ADDRESSES.SNOWFRO);
+      const expectedAfterBalance = previousBalance
+        .sub(tx.gasPrice.mul(receipt.cumulativeGasUsed))
+        .add(ethers.utils.parseEther("5.0"));
+
+      // Expect increase in balance
+      expect(afterBalance.toString()).to.equal(expectedAfterBalance.toString());
     });
   });
 
   describe("Loan repayment", () => {
     it("Should allow repaying loan", async () => {
-      expect(false).to.equal(true);
+      // Create loan
+      await scaffoldLoan();
+
+      // Impersonate Lender One
+      const LenderOneSigner = await impersonateSigner(ADDRESSES.LENDER_ONE);
+      const LenderOneBank = PawnBankContract.connect(LenderOneSigner);
+
+      // Back loan with 5 ETH
+      await LenderOneBank.underwriteLoan(0, {
+        value: ethers.utils.parseEther("5.0"),
+      });
+
+      // Record Lender balance
+      const previousLenderBalance = await waffle.provider.getBalance(ADDRESSES.LENDER_ONE);
+
+      // Impersonate Snowfro
+      const SnowfroSigner = await impersonateSigner(ADDRESSES.SNOWFRO);
+      const SnowfroPawnBank = PawnBankContract.connect(SnowfroSigner);
+
+      // Fast forward <1h
+      await network.provider.send("evm_increaseTime", [3500]);
+      await network.provider.send("evm_mine");
+
+      // Calculate repayment amount
+      const repaymentAmount = await SnowfroPawnBank.calculateRequiredRepayment(0);
+      console.log("Calculated repayment amount: ", repaymentAmount.toString());
+
+      // Repay loan
+      await SnowfroPawnBank.repayLoan(0, { value: repaymentAmount });
+
+      // Expect loan to be closed
+      const NewLoanOwner: string = (await SnowfroPawnBank.pawnLoans(0)).tokenOwner;
+      expect(NewLoanOwner).to.equal(ADDRESSES.ZERO);
+
+      // Expect NFT to be owned by original owner
+      const SquigglesContract = await getSquigglesContract(ADDRESSES.SNOWFRO);
+      const SquiggleOwner: string = await SquigglesContract.ownerOf(SQUIGGLE_0);
+      expect(SquiggleOwner).to.equal(ADDRESSES.SNOWFRO);
+
+      // Expect increase in Lender One balance by .25 ETH
+      const afterLenderBalance = await waffle.provider.getBalance(ADDRESSES.LENDER_ONE);
+      expect(previousLenderBalance.add(repaymentAmount)).to.equal(afterLenderBalance);
     });
 
     it("Should allow repaying loan w/ partial deposit", async () => {
@@ -387,7 +533,7 @@ describe("PawnBank", () => {
       expect(false).to.equal(true);
     });
 
-    it("Should prevet repaying paid loan", async () => {
+    it("Should prevent repaying paid loan", async () => {
       expect(false).to.equal(true);
     });
   });

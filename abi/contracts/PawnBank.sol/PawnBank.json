@@ -140,74 +140,31 @@
   {
     "inputs": [
       {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "tokenAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "tokenOwner",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "lender",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "tokenId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "interestRate",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "loanAmount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "maxLoanAmount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "loanAmountDrawn",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "firstBidTime",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "lastBidTime",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "historicInterest",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "loanCompleteTime",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct PawnBank.PawnLoan",
-        "name": "loan",
-        "type": "tuple"
+        "internalType": "uint256",
+        "name": "_loanId",
+        "type": "uint256"
       }
     ],
-    "name": "_calculateInterestAccrued",
+    "name": "calculateInterestAccrued",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_loanId",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculateRequiredRepayment",
     "outputs": [
       {
         "internalType": "uint256",
