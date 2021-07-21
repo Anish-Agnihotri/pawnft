@@ -1,22 +1,32 @@
-import { ethers } from "ethers";
-import Onboard from "bnc-onboard";
-import { useEffect, useState } from "react";
-import { createContainer } from "unstated-next";
+import { ethers } from "ethers"; // Ethers
+import Onboard from "bnc-onboard"; // Onboard.js
+import { useEffect, useState } from "react"; // React
+import { createContainer } from "unstated-next"; // State management
 
-// Onboarding wallet providers
-const wallets = [
+// Types
+import type {
+  API,
+  WalletInitOptions,
+  WalletModule,
+} from "bnc-onboard/dist/src/interfaces";
+import type { Web3Provider } from "@ethersproject/providers";
+
+// Onboard.js wallet providers
+const wallets: (WalletModule | WalletInitOptions)[] = [
   { walletName: "metamask" },
   {
     walletName: "walletConnect",
-    infuraKey: process.env.NEXT_PUBLIC_INFURA_RPC,
+    infuraKey: process.env.NEXT_PUBLIC_INFURA_RPC ?? "",
   },
 ];
 
+/**
+ * Provides functionality for Eth account/state management
+ */
 function useEth() {
-  const [address, setAddress] = useState(null); // User address
-  const [onboard, setOnboard] = useState(null); // Onboard provider
-  const [provider, setProvider] = useState(null); // Ethers provider
-  const [rawAddress, setRawAddress] = useState(null); // Non-ENS address
+  const [address, setAddress] = useState<string | null>(null); // User address
+  const [onboard, setOnboard] = useState<API | null>(null); // Onboard provider
+  const [provider, setProvider] = useState<Web3Provider | null>(null); // Ethers provider
 
   /**
    * Unlock wallet, store ethers provider and address
@@ -52,32 +62,27 @@ function useEth() {
 
             // Collect address
             const signer = await provider.getSigner();
-            const address = await signer.getAddress();
-
-            // Collect ENS name
-            const ensName = await provider.lookupAddress(address);
+            const address: string = await signer.getAddress();
 
             // Update provider, address, and raw address
             setProvider(provider);
-            setRawAddress(address);
-            setAddress(ensName ? ensName : address);
+            setAddress(address);
           } else {
             // Nullify data
             setProvider(null);
-            setRawAddress(null);
             setAddress(null);
           }
         },
       },
       // Force connect on walletCheck for WalletConnect
-      walletCheck: [{ checkName: "connect" }],
+      walletCheck: [{ checkName: "network" }, { checkName: "connect" }],
     });
 
     // Update onboard
     setOnboard(onboard);
   }, []);
 
-  return { address, rawAddress, provider, unlock };
+  return { address, provider, unlock };
 }
 
 // Create unstated-next container

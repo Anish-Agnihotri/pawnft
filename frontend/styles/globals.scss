@@ -1,4 +1,7 @@
 * {
+  box-sizing: border-box;
+
+  // Variables
   --color-bg: #fff;
   --color-green: #127e83;
   --color-silver: #c0c0c0;
@@ -28,6 +31,8 @@ a {
   text-decoration: none;
 }
 
-* {
-  box-sizing: border-box;
+.sizer {
+  max-width: 1000px;
+  padding: 30px 20px 50px 20px;
+  margin: 0px auto;
 }

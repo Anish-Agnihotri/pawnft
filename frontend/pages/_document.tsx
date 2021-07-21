@@ -1,9 +1,13 @@
-import Document, { Html, Head, Main, NextScript } from "next/document";
+import Document, { Html, Head, Main, NextScript } from "next/document"; // Document
 
+/**
+ * Exports custom document to inject Head
+ */
 export default class PawnBankDocument extends Document {
   render() {
     return (
       <Html>
+        {/* Custom Head */}
         <Head>
           {/* Fonts */}
           <link rel="preconnect" href="https://fonts.googleapis.com" />
