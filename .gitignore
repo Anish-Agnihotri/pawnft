@@ -1,5 +1,7 @@
 # Node
 node_modules
+/.pnp
+.pnp.js
 
 # Hardhat files
 cache
@@ -10,3 +12,11 @@ artifacts
 
 # VSCode workspace prefs.
 .vscode
+
+# NextJS
+/.next/
+/out/
+
+# misc
+.DS_Store
+*.pem
