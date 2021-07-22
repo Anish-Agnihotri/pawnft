@@ -42,7 +42,7 @@ export default function Home(): ReactElement {
       <div>
         {/* Call to action header */}
         <div className={styles.home__cta}>
-          <h1>NFT. Lending. Now.</h1>
+          <h1>Lend your NFTs</h1>
           <p>
             PawnFT is a hybrid auction and lending platform for your NFTs.
             Borrow against your collection or earn fixed rewards.
@@ -71,7 +71,7 @@ export default function Home(): ReactElement {
           <div className="sizer">
             {/* Title */}
             <h2>All loans</h2>
-            <p>Showing all {loans.length} loans.</p>
+            <p>Retrieved {loans.length} loans.</p>
 
             {loading ? (
               // If loading, show loading state

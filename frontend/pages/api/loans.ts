@@ -4,6 +4,7 @@ import { parseEther, PawnBankRPC } from "@utils/ethers"; // RPC
 // Types
 import type { BigNumber } from "ethers";
 import type { LoanWithMetadata } from "@utils/types";
+import type { NextApiRequest, NextApiResponse } from "next";
 
 /**
  * Collects data about all loans
@@ -60,7 +61,7 @@ async function collectAllLoans(): Promise<LoanWithMetadata[]> {
 }
 
 // Return loan data
-const loans = async (req, res) => {
+const loans = async (req: NextApiRequest, res: NextApiResponse) => {
   res.send(await collectAllLoans());
 };
 

@@ -1,10 +1,11 @@
 import Redis from "ioredis"; // Redis
+import type { NextApiRequest, NextApiResponse } from "next";
 
 /**
  * Temporary work-around for not having an OpenSea API key
  * Literally, store metadata in Redis on creation :(
  */
-const metadata = async (req, res) => {
+const metadata = async (req: NextApiRequest, res: NextApiResponse) => {
   // Collect required parameters
   const { name, description, imageURL, tokenAddress, tokenId } = req.body;
 
@@ -33,7 +34,7 @@ const metadata = async (req, res) => {
 
   // Save metadata and return
   await client.set("metadata", JSON.stringify(newData));
-  res.status(200).send();
+  res.status(200).send({ success: true });
 };
 
 export default metadata;

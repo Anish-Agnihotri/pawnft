@@ -3,6 +3,7 @@ import { parseEther, PawnBankRPC } from "@utils/ethers"; // RPC
 
 // Types
 import type { LoanWithMetadata } from "@utils/types";
+import type { NextApiRequest, NextApiResponse } from "next";
 
 /**
  * Collects data about a single loan
@@ -49,7 +50,7 @@ export async function collectSingleLoan(
 }
 
 // Return loan data
-const loans = async (req, res) => {
+const loans = async (req: NextApiRequest, res: NextApiResponse) => {
   const { id } = req.query;
 
   res.send(await collectSingleLoan(Number(id)));

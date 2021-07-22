@@ -154,7 +154,7 @@ export default function Create() {
         <div className={styles.create}>
           {/* Create page title */}
           <h1>Create loan</h1>
-          <p>Select an NFT, choose your terms, and list.</p>
+          <p>Select an NFT and choose your terms.</p>
 
           <div className={styles.create__action}>
             {/* Action card phases */}
