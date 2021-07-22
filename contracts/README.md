@@ -1,4 +1,4 @@
-# PawnFT [Contracts]
+# PawNFT [Contracts]
 
 `PawnBank.sol` issues PawnLoans that track all details about an individual loan. Users can `createLoan`, `underwriteLoan`, `drawLoan`, `repayLoan`, `cancelLoan`, or `seizeNFT`.
 

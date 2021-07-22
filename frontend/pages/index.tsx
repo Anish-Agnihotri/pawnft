@@ -44,7 +44,7 @@ export default function Home(): ReactElement {
         <div className={styles.home__cta}>
           <h1>Lend your NFTs</h1>
           <p>
-            PawnFT is a hybrid auction and lending platform for your NFTs.
+            PawNFT is a hybrid auction and lending platform for your NFTs.
             Borrow against your collection or earn fixed rewards.
           </p>
 
@@ -57,7 +57,7 @@ export default function Home(): ReactElement {
 
             {/* Open GitHub in new tab */}
             <a
-              href="https://github.com/anish-agnihotri/pawnft"
+              href="https://github.com/anish-agnihotri/PawNFT"
               target="_blank"
               rel="noopener noreferrer"
             >

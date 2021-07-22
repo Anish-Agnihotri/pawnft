@@ -1,4 +1,4 @@
-# PawnFT [Frontend]
+# PawNFT [Frontend]
 
 [NextJS](https://nextjs.org) application as an interface to the contracts.
 
