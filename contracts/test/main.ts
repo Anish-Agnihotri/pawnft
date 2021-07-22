@@ -258,7 +258,7 @@ describe("PawnBank", () => {
 
       // Draw and repay loan
       await SnowfroBank.drawLoan(0);
-      const repaymentAmount: BigNumber = await SnowfroBank.calculateRequiredRepayment(0);
+      const repaymentAmount: BigNumber = await SnowfroBank.calculateRequiredRepayment(0, 0);
       await SnowfroBank.repayLoan(0, { value: repaymentAmount.mul(101).div(100) });
 
       // Attempt to re-underwrite loan
@@ -328,16 +328,15 @@ describe("PawnBank", () => {
       const receipt = await waffle.provider.getTransactionReceipt(tx.hash);
 
       // Back loan with 6 ETH
-      const totalInterest: BigNumber = await LenderTwoBank.calculateTotalInterest(0);
-      const totalBuffer: BigNumber = totalInterest.mul(2);
-      const higherLoan: BigNumber = ethers.utils.parseEther("6.0").add(totalBuffer);
+      const totalInterest: BigNumber = await LenderTwoBank.calculateTotalInterest(0, 1);
+      const higherLoan: BigNumber = ethers.utils.parseEther("6.0").add(totalInterest);
       await LenderTwoBank.underwriteLoan(0, { value: higherLoan });
 
       // Collect details
       const NewTopLender: string = (await LenderTwoBank.pawnLoans(0)).lender;
       const expectedLenderOneBalance: BigNumber = previousBalance
         .sub(tx.gasPrice.mul(receipt.cumulativeGasUsed))
-        .add(totalBuffer);
+        .add(totalInterest);
       const acutalLenderOneBalance: BigNumber = await waffle.provider.getBalance(
         ADDRESSES.LENDER_ONE
       );
@@ -397,9 +396,8 @@ describe("PawnBank", () => {
       expect(afterBalance).to.equal(expectedAfterBalance);
 
       // Back loan with 6 ETH
-      const totalInterest: BigNumber = await LenderTwoBank.calculateTotalInterest(0);
-      const totalBuffer: BigNumber = totalInterest.mul(2);
-      const higherLoan: BigNumber = ethers.utils.parseEther("6.0").add(totalBuffer);
+      const totalInterest: BigNumber = await LenderTwoBank.calculateTotalInterest(0, 5);
+      const higherLoan: BigNumber = ethers.utils.parseEther("6.0").add(totalInterest);
       await LenderTwoBank.underwriteLoan(0, { value: higherLoan });
 
       // Draw 6ETH
@@ -412,7 +410,7 @@ describe("PawnBank", () => {
         .sub(tx2.gasPrice.mul(receipt2.cumulativeGasUsed))
         .add(ethers.utils.parseEther("1.0"));
 
-      expect(afterBalance2).to.equal(expectedAfterBalance2);
+      expect(afterBalance2).to.be.gte(expectedAfterBalance2);
     });
 
     it("Should prevent drawing from a loan with no bids", async () => {
@@ -508,7 +506,7 @@ describe("PawnBank", () => {
       await network.provider.send("evm_mine");
 
       // Calculate repayment amount
-      const repaymentAmount: BigNumber = await SnowfroBank.calculateRequiredRepayment(0);
+      const repaymentAmount: BigNumber = await SnowfroBank.calculateRequiredRepayment(0, 0);
       const repaymentBuffer: BigNumber = repaymentAmount.mul(101).div(100);
 
       // Repay loan
@@ -546,7 +544,7 @@ describe("PawnBank", () => {
       await network.provider.send("evm_mine");
 
       // Calculate repayment amount
-      const repaymentAmount: BigNumber = await LenderTwoBank.calculateRequiredRepayment(0);
+      const repaymentAmount: BigNumber = await LenderTwoBank.calculateRequiredRepayment(0, 0);
       const repaymentBuffer: BigNumber = repaymentAmount.mul(101).div(100);
 
       // Repay loan
@@ -608,7 +606,7 @@ describe("PawnBank", () => {
       await network.provider.send("evm_mine");
 
       // Calculate repayment amount
-      const repaymentAmount: BigNumber = await SnowfroBank.calculateRequiredRepayment(0);
+      const repaymentAmount: BigNumber = await SnowfroBank.calculateRequiredRepayment(0, 0);
       const repaymentBuffer: BigNumber = repaymentAmount.mul(101).div(100);
 
       // Repay loan
@@ -738,7 +736,7 @@ describe("PawnBank", () => {
 
       // Draw and repay loan
       await SnowfroBank.drawLoan(0);
-      const repaymentAmount: BigNumber = await SnowfroBank.calculateRequiredRepayment(0);
+      const repaymentAmount: BigNumber = await SnowfroBank.calculateRequiredRepayment(0, 0);
       await SnowfroBank.repayLoan(0, { value: repaymentAmount.mul(101).div(100) });
 
       // Seize NFT

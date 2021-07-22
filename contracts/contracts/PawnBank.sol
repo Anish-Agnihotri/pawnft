@@ -136,12 +136,17 @@ contract PawnBank {
   /**
    * Helper: Calculate accrued interest for a particular lender
    * @param _loanId PawnLoan id
+   * @param _future allows calculating accrued interest in future
    * @return Accrued interest on current top bid, in Ether
    */
-  function calculateInterestAccrued(uint256 _loanId) public view returns (uint256) {
+  function calculateInterestAccrued(uint256 _loanId, uint256 _future)
+    public
+    view
+    returns (uint256)
+  {
     PawnLoan memory loan = pawnLoans[_loanId];
     // Seconds that current bid has stayed at top
-    uint256 _secondsAsTopBid = block.timestamp - loan.lastBidTime;
+    uint256 _secondsAsTopBid = block.timestamp + _future - loan.lastBidTime;
     // Seconds that any loan has been active
     uint256 _secondsSinceFirstBid = loan.loanCompleteTime - loan.firstBidTime;
     // Duration of total loan time that current bid has been active
@@ -157,25 +162,31 @@ contract PawnBank {
   /**
    * Helper: Calculates required additional capital (over topbid) to outbid loan
    * @param _loanId PawnLoan id
+   * @param _future allows calculating required additional capital in future
    * @return required interest payment to cover current top bidder
    */
-  function calculateTotalInterest(uint256 _loanId) public view returns (uint256) {
+  function calculateTotalInterest(uint256 _loanId, uint256 _future) public view returns (uint256) {
     PawnLoan memory loan = pawnLoans[_loanId];
 
     // past lender interest + current accrued interest
-    return loan.historicInterest + calculateInterestAccrued(_loanId);
+    return loan.historicInterest + calculateInterestAccrued(_loanId, _future);
   }
 
   /**
    * Helper: Calculate required capital to repay loan
    * @param _loanId PawnLoan id
+   * @param _future allows calculating require payment in future
    * @return required loan repayment in Ether
    */
-  function calculateRequiredRepayment(uint256 _loanId) public view returns (uint256) {
+  function calculateRequiredRepayment(uint256 _loanId, uint256 _future)
+    public
+    view
+    returns (uint256)
+  {
     PawnLoan memory loan = pawnLoans[_loanId];
 
     // amount withdrawn + total interest to be paid
-    return loan.loanAmountDrawn + calculateTotalInterest(_loanId);
+    return loan.loanAmountDrawn + calculateTotalInterest(_loanId, _future);
   }
 
   /**
@@ -195,7 +206,8 @@ contract PawnBank {
     // If loan has a previous bid:
     if (loan.firstBidTime != 0) {
       // Historic interest paid to previous top bidders + accrued interest to current bidder
-      uint256 _totalInterest = calculateTotalInterest(_loanId);
+      // As of current block (future = 0 seconds)
+      uint256 _totalInterest = calculateTotalInterest(_loanId, 0);
       // Calculate total payout for previous bidder
       uint256 _bidPayout = loan.loanAmount + _totalInterest;
 
@@ -268,7 +280,8 @@ contract PawnBank {
     require(loan.loanCompleteTime >= block.timestamp, "Can't repay expired loan.");
 
     // Add historic interest paid to previous top bidders + accrued interest to top bidder
-    uint256 _totalInterest = calculateTotalInterest(_loanId);
+    // As of current block (future = 0 seconds)
+    uint256 _totalInterest = calculateTotalInterest(_loanId, 0);
     // Calculate additional capital required to process payout
     uint256 _additionalCapital = loan.loanAmountDrawn + _totalInterest;
     // Enforce additional required capital is passed to contract

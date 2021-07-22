@@ -143,6 +143,11 @@
         "internalType": "uint256",
         "name": "_loanId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_future",
+        "type": "uint256"
       }
     ],
     "name": "calculateInterestAccrued",
@@ -162,6 +167,11 @@
         "internalType": "uint256",
         "name": "_loanId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_future",
+        "type": "uint256"
       }
     ],
     "name": "calculateRequiredRepayment",
@@ -180,6 +190,11 @@
       {
         "internalType": "uint256",
         "name": "_loanId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_future",
         "type": "uint256"
       }
     ],
