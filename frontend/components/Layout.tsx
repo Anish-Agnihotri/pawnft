@@ -1,6 +1,7 @@
 import Link from "next/link"; // Dynamic routing
 import { eth } from "@state/eth"; // State management
 import type { ReactElement } from "react"; // Types
+import NextNProgress from "nextjs-progressbar"; // Navigation progress bar
 import styles from "@styles/components/Layout.module.scss"; // Component styles
 import Jazzicon, { jsNumberForAddress } from "react-jazzicon"; // Jazzicon
 
@@ -16,6 +17,17 @@ export default function Layout({
 }): ReactElement {
   return (
     <div>
+      {/* Navigation progress bar */}
+      <NextNProgress
+        color="#127e83"
+        startPosition={0.3}
+        stopDelayMs={200}
+        height={3}
+        options={{
+          showSpinner: false,
+        }}
+      />
+
       {/* Top header component */}
       <Header />
 

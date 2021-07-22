@@ -1,5 +1,5 @@
 import Redis from "ioredis"; // Redis
-import { PawnBankRPC } from "@utils/ethers"; // RPC
+import { parseEther, PawnBankRPC } from "@utils/ethers"; // RPC
 
 // Types
 import type { BigNumber } from "ethers";
@@ -45,9 +45,9 @@ async function collectAllLoans(): Promise<LoanWithMetadata[]> {
       lender: loan[2],
       tokenId: loan[3].toNumber(),
       interestRate: loan[4].toNumber(),
-      loanAmount: loan[5].toNumber(),
-      maxLoanAmount: loan[6].toNumber(),
-      loanAmountDrawn: loan[7].toNumber(),
+      loanAmount: parseEther(loan[5]),
+      maxLoanAmount: parseEther(loan[6]),
+      loanAmountDrawn: parseEther(loan[7]),
       firstBidTime: loan[8].toNumber(),
       lastBidTime: loan[9].toNumber(),
       historicInterest: loan[10].toNumber(),
@@ -55,8 +55,8 @@ async function collectAllLoans(): Promise<LoanWithMetadata[]> {
     });
   }
 
-  // Return loans
-  return loans;
+  // Return loans (ordered by recency in creation)
+  return loans.reverse();
 }
 
 // Return loan data

@@ -145,6 +145,11 @@ export const PawnBankABI = [
         name: "_loanId",
         type: "uint256",
       },
+      {
+        internalType: "uint256",
+        name: "future",
+        type: "uint256",
+      },
     ],
     name: "calculateInterestAccrued",
     outputs: [
@@ -164,6 +169,11 @@ export const PawnBankABI = [
         name: "_loanId",
         type: "uint256",
       },
+      {
+        internalType: "uint256",
+        name: "future",
+        type: "uint256",
+      },
     ],
     name: "calculateRequiredRepayment",
     outputs: [
@@ -181,6 +191,11 @@ export const PawnBankABI = [
       {
         internalType: "uint256",
         name: "_loanId",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "future",
         type: "uint256",
       },
     ],
