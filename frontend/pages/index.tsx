@@ -42,9 +42,9 @@ export default function Home(): ReactElement {
       <div>
         {/* Call to action header */}
         <div className={styles.home__cta}>
-          <h1>NFT. Borrowing. Now.</h1>
+          <h1>NFT. Lending. Now.</h1>
           <p>
-            PawnBank is a hybrid auction and lending platform for your NFTs.
+            PawnFT is a hybrid auction and lending platform for your NFTs.
             Borrow against your collection or earn fixed rewards.
           </p>
 
@@ -57,7 +57,7 @@ export default function Home(): ReactElement {
 
             {/* Open GitHub in new tab */}
             <a
-              href="https://github.com/anish-agnihotri/pawnbank"
+              href="https://github.com/anish-agnihotri/pawnft"
               target="_blank"
               rel="noopener noreferrer"
             >

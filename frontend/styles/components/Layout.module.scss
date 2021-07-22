@@ -11,6 +11,19 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 
+  .layout__header_logo {
+    transition: 40ms ease-in-out;
+
+    &:hover {
+      opacity: 0.8;
+      transform: rotate(-15deg);
+    }
+
+    img {
+      margin-top: 4px;
+    }
+  }
+
   .layout__header_actions {
     a {
       background-color: var(--color-green);

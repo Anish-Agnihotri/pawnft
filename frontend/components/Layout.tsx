@@ -55,7 +55,7 @@ function Header(): ReactElement {
       <div className={styles.layout__header_logo}>
         <Link href="/">
           <a>
-            <span>Logo</span>
+            <img src="/vectors/logo.svg" alt="logo" width="35" height="35" />
           </a>
         </Link>
       </div>
