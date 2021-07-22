@@ -9,13 +9,14 @@ artifacts
 
 # Environment variables
 .env
+.env.local
 
 # VSCode workspace prefs.
 .vscode
 
 # NextJS
-/.next/
-/out/
+.vercel
+.next
 
 # misc
 .DS_Store
