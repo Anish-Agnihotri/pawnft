@@ -123,7 +123,12 @@ export default function Create() {
         selected.token_id,
         interest,
         maxAmount,
-        loanCompleted
+        loanCompleted,
+        {
+          imageURL: selected.image_preview_url ?? "",
+          name: selected.name ?? "Untitled",
+          description: selected.description ?? "No Description",
+        }
       );
       // Prompt success
       toast.success("Successfully created loan! Redirecting...");

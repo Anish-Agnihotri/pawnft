@@ -1,3 +1,4 @@
+import axios from "axios"; // Axios
 import { ethers } from "ethers"; // Ethers
 import { eth } from "@state/eth"; // ETH state
 import { ERC721ABI } from "@utils/abi/erc721"; // ABI: ERC721
@@ -5,8 +6,8 @@ import { createContainer } from "unstated-next"; // State
 import { PawnBankABI } from "@utils/abi/PawnBank"; // ABI: PawnBank
 
 // Constant: Pawn Bank deployed address
-const PAWN_BANK_ADDRESS: string =
-  process.env.PAWN_BANK_ADDRESS ?? "0x4D5c6F5383235D43B86EAa9b4482B0FD7EFd09BD";
+export const PAWN_BANK_ADDRESS: string =
+  process.env.PAWN_BANK_ADDRESS ?? "0x9336F3fBe93A6eac39b2Aa5319f19C06ac142F46";
 
 /**
  * Provides utility functions for use with loan management
@@ -55,6 +56,7 @@ function useLoan() {
    * @param {number} rate interest rate
    * @param {number} amount bid ceiling
    * @param {number} completion timestamp of completion
+   * @param {Record<string, string>} metadata temporary redis bypass for OpenSea
    * @returns {Promise<number | undefined>} loan id
    */
   async function createLoan(
@@ -62,16 +64,26 @@ function useLoan() {
     id: string,
     rate: number,
     amount: number,
-    completion: number
+    completion: number,
+    metadata: Record<string, string>
   ): Promise<number | undefined> {
     const nft = await collectERC721Contract(contract);
     const PawnBank = await collectPawnBankContract();
 
     // Ensure !undefined
     if (nft && PawnBank) {
+      // FIXME: Temporary opensea bypass, post metadata to Redis
+      await axios.post("/api/metadata", {
+        tokenAddress: contract,
+        tokenId: id,
+        ...metadata,
+      });
+
+      // Force approve NFT
       const tx = await nft.approve(PAWN_BANK_ADDRESS, id, { gasLimit: 50000 });
       await tx.wait(1);
 
+      // Create loan
       const pawn = await PawnBank.createLoan(
         contract,
         id,

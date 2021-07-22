@@ -6,8 +6,15 @@
   transition: 50ms ease;
   padding: 20px 0px;
 
-  img {
-    max-height: 200px;
+  > div:nth-of-type(1) {
+    height: 200px;
+    margin: 0px 20px;
+    overflow: hidden;
+
+    img {
+      height: 100%;
+      object-fit: cover;
+    }
   }
 
   h3 {
@@ -23,7 +30,7 @@
     margin-right: auto;
   }
 
-  div {
+  > div:nth-of-type(2) {
     max-height: 40px;
     margin-bottom: 20px;
     overflow: hidden;
@@ -51,4 +58,36 @@
 // Selected card
 .active {
   border-color: var(--color-green);
+}
+
+// Card loan component
+.card__loan {
+  display: flex;
+  justify-content: space-between;
+  margin: 30px 15px 0px 15px;
+  border-radius: 5px;
+  border: 1px dashed var(--color-green);
+
+  div:nth-of-type(1) {
+    text-align: left;
+  }
+
+  div:nth-of-type(2) {
+    text-align: right;
+  }
+
+  div {
+    padding: 15px;
+
+    h4 {
+      font-size: 16px;
+      margin: 0px;
+    }
+
+    h2 {
+      font-size: 24px;
+      margin-block-start: 5px;
+      margin-block-end: 0px;
+    }
+  }
 }
