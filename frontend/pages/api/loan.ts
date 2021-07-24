@@ -44,7 +44,7 @@ export async function collectSingleLoan(
     loanAmountDrawn: parseEther(loan[7]),
     firstBidTime: loan[8].toNumber(),
     lastBidTime: loan[9].toNumber(),
-    historicInterest: loan[10].toNumber(),
+    historicInterest: parseEther(loan[10]),
     loanCompleteTime: loan[11].toNumber(),
   };
 }
