@@ -255,12 +255,13 @@ contract PawnBank {
     // Prevent drawing from a loan with 0 available capital
     require(loan.loanAmountDrawn < loan.loanAmount, "Max draw capacity reached.");
 
-    // Draw the maximum available loan capital
-    (bool sent, ) = payable(msg.sender).call{value: loan.loanAmount - loan.loanAmountDrawn}("");
-    require(sent == true, "Failed to draw capital.");
-
+    // Calculate capital to draw
+    uint256 _availableCapital = loan.loanAmount - loan.loanAmountDrawn;
     // Update drawn amount to current loan capacity
     loan.loanAmountDrawn = loan.loanAmount;
+    // Draw the maximum available loan capital
+    (bool sent, ) = payable(msg.sender).call{value: _availableCapital}("");
+    require(sent == true, "Failed to draw capital.");
 
     // Emit draw event
     emit LoanDrawn(_loanId);
