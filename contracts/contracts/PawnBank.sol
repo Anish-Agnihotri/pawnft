@@ -95,29 +95,18 @@ contract PawnBank {
     require(_loanCompleteTime > block.timestamp, "Can't create loan in past");
 
     // NFT id
-    uint256 loanId = numLoans;
+    uint256 loanId = ++numLoans;
 
     // Transfer NFT from owner to contract
     IERC721(_tokenAddress).transferFrom(msg.sender, address(this), _tokenId);
 
     // Create loan
-    pawnLoans[loanId] = PawnLoan(
-      _tokenAddress,
-      msg.sender,
-      address(0), // No lender
-      _tokenId,
-      _interestRate,
-      0, // No current bid
-      _maxLoanAmount,
-      0, // 0 initial utilization
-      0, // No first bid timestamp
-      0, // No last bid timestamp
-      0, // No historic interest
-      _loanCompleteTime
-    );
-
-    // Increment number of loans
-    numLoans++;
+    pawnLoans[loanId].tokenAddress = _tokenAddress;
+    pawnLoans[loanId].tokenOwner = msg.sender;
+    pawnLoans[loanId].tokenId = _tokenId;
+    pawnLoans[loanId].interestRate = _interestRate;
+    pawnLoans[loanId].maxLoanAmount = _maxLoanAmount;
+    pawnLoans[loanId].loanCompleteTime = _loanCompleteTime;
 
     // Emit creation event
     emit LoanCreated(
@@ -248,8 +237,6 @@ contract PawnBank {
    */
   function drawLoan(uint256 _loanId) external {
     PawnLoan storage loan = pawnLoans[_loanId];
-    // Prevent drawing from a loan without bids
-    require(loan.firstBidTime != 0, "No capacity to draw loan.");
     // Prevent non-loan-owner from drawing
     require(loan.tokenOwner == msg.sender, "Must be NFT owner to draw.");
     // Prevent drawing from a loan with 0 available capital
@@ -261,7 +248,7 @@ contract PawnBank {
     loan.loanAmountDrawn = loan.loanAmount;
     // Draw the maximum available loan capital
     (bool sent, ) = payable(msg.sender).call{value: _availableCapital}("");
-    require(sent == true, "Failed to draw capital.");
+    require(sent, "Failed to draw capital.");
 
     // Emit draw event
     emit LoanDrawn(_loanId);
@@ -290,7 +277,7 @@ contract PawnBank {
 
     // Payout current top bidder (loan amount + total pending interest)
     (bool sent, ) = payable(loan.lender).call{value: (loan.loanAmount + _totalInterest)}("");
-    require(sent == true, "Failed to repay loan.");
+    require(sent, "Failed to repay loan.");
 
     // Transfer NFT back to owner
     IERC721(loan.tokenAddress).transferFrom(address(this), loan.tokenOwner, loan.tokenId);
